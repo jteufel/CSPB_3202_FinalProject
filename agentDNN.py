@@ -1,3 +1,8 @@
+'''
+Agent from step 2 of Report.
+Credit github user gregd190 for initial code
+'''
+
 import h5py
 import numpy as np
 from collections import deque
@@ -26,18 +31,44 @@ def find_actionbin(action, actionbins):
     idx = (np.abs(actionbins - action)).argmin()
     return idx
 
+"""
+Function to build the Sequential nueral network model
+
+Modifications include a series of new dense layers, with increased connectivity, each followed by a dropout layer.
+"""
+
 def build_model(num_output_nodes):
 
     model = Sequential()
 
+    '''
+    #comment out layers for first iteration
+
+    model.add(Dense(512, activation = 'relu'))
+    model.add(Dropout(.8))
+    model.add(Dense(256, activation = 'relu'))
+
     model.add(Dense(128, activation = 'relu'))
     model.add(Dropout(.8))
     model.add(Dense(64, activation = 'relu'))
+    model.add(Dropout(.8))
+    '''
+
     model.add(Dense(num_output_nodes, activation = 'linear'))
     adam = optimizers.Adam(lr=0.0002, beta_1=0.9, beta_2=0.999)
     model.compile(loss = 'mse', optimizer = adam)
 
     return model
+
+"""
+Function to implement a training iteration of the DNN model.
+
+Modifications from original agent include reformatting the code such that for each training iteration,
+the model would only be fit once on multidimensional data. The existing training loop was refitting the
+model on each new sample collected.
+
+Updated model fitting include 20 epochs.
+"""
 
 def train_model(data, model):
 
@@ -51,6 +82,18 @@ def train_model(data, model):
 
     return model
 
+"""
+Function to generate data and and implement training iterations.
+
+Number of training iterations per fucntion call defined by the iters var. Sample # passed into each training
+session defined by trainingSamples var.
+
+As eps decay var decreases, sample actions are determined by the model more often by the model then randomly generated.
+
+Modifications from original agent include reformatting the data passed into the training iteration,
+and incremental tweeks to the samples passed into each training session (trainingSamples var on line 94)
+"""
+
 def run_episodes(env, model, eps = 0.999, r = False, iters = 100):
 
     eps_decay = 0.9999
@@ -59,7 +102,6 @@ def run_episodes(env, model, eps = 0.999, r = False, iters = 100):
     for i in range(iters):
         state = env.reset()
 
-        totalreward = 0
         stateArray, actionArray, rewardArray, nextStateArray = (np.array([]) for i in range(4))
 
         if eps>eps_min:
@@ -78,7 +120,6 @@ def run_episodes(env, model, eps = 0.999, r = False, iters = 100):
             action = actionbinslist[actionbin]
             action = np.array([action])
             observation, reward, done, _ = env.step(action)
-            totalreward += reward
             state_new = observation
 
             stateArray = np.append(stateArray,state)
@@ -97,6 +138,13 @@ def run_episodes(env, model, eps = 0.999, r = False, iters = 100):
 
     return eps, model
 
+"""
+Main function generate the environment initiate training.
+No major adjustments from initial agent.
+Reduced the number of training iterations per run to 500,
+and increased interval to 100 - run_episodes is only called 5 times.
+"""
+
 if __name__ == '__main__':
 
 	env = gym.make('Pendulum-v0')
@@ -106,21 +154,16 @@ if __name__ == '__main__':
 	actionbinslist = create_action_bins(num_action_bins)
 
 	model = build_model(num_action_bins)
-	totarray = []
-	cntarray = []
 	totaliters = 500
 	test_interval = 100
 	numeps = int(totaliters)
 	print('numeps = ', numeps)
 	cnt = 0
-
 	while cnt < totaliters:
 		eps, model = run_episodes(env, model, eps = eps, r = False, iters = test_interval)
 		cnt += test_interval
-		trarray = []
-
 		print(cnt, 'iterations')
 
 	print('saving model')
-	model.save('pendulum-model-test2.h5')
+	model.save('pendulum-model-test1.h5')
 	print('model saved')

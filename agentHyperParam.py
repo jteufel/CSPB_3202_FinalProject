@@ -1,3 +1,8 @@
+'''
+Agent from step 3 of Report.
+Credit github user gregd190 for initial code
+'''
+
 import h5py
 import numpy as np
 from collections import deque
@@ -21,14 +26,25 @@ from kerastuner.tuners import Hyperband
 from Hyper import ClearTrainingOutput
 
 
-
+"""
+Function to generate action bins for use in training episodes
+"""
 def create_action_bins(z):
     actionbins = np.linspace(-2.0, 2.0, z)
     return actionbins
 
+"""
+Function to generate action index for use in training episodes
+"""
 def find_actionbin(action, actionbins):
     idx = (np.abs(actionbins - action)).argmin()
     return idx
+
+"""
+Function to build the Sequential nueral network model
+he layers of the neural network were modified only slightly from step 1 for this iteration
+ - 1 flattening layer, followed by 2 dense layers
+"""
 
 def build_model(hp):
 
@@ -51,6 +67,18 @@ def build_model(hp):
 
     return model
 
+"""
+Function to implement a training iteration of the DNN model.
+
+Modifications from original agent include reformatting the code such that for each training iteration,
+the model would only be fit once on multidimensional data. The existing training loop was refitting the
+model on each new sample collected.
+
+Updated model fitting include 20 epochs.
+
+Also modified to include hyperparam tunning.
+"""
+
 def train_model(data, tuner, model = None):
 
     state, action, reward, next = data['state'], data['action'], data['reward'], data['next']
@@ -69,6 +97,10 @@ def train_model(data, tuner, model = None):
 
     for i in range(0,len(action)): MaxTargets[i][int(action[i])] = MaxTarget[i]
 
+    '''
+    tuner.search method introduced to find best hyperparameters. Those hyperparameters are then used to
+    build an optimal model.
+    '''
     tuner.search(state, MaxTargets, epochs = 10, callbacks = [ClearTrainingOutput()])
     best_hps = tuner.get_best_hyperparameters(num_trials = 1)[0]
 
@@ -77,6 +109,18 @@ def train_model(data, tuner, model = None):
 
     return tuner.get_best_models(num_models=1)[0]
 
+"""
+Function to generate data and and implement training iterations.
+
+Number of training iterations per fucntion call defined by the iters var. Sample # passed into each training
+session defined by trainingSamples var.
+
+As eps decay var decreases, sample actions are determined by the model more often by the model then randomly generated.
+
+Modifications from original agent include reformatting the data passed into the training iteration,
+and incremental tweeks to the samples passed into each training session (trainingSamples var on line 94)
+"""
+
 def run_episodes(tuner, model = None, eps = 0.999, r = False, iters = 100):
 
     eps_decay = 0.9999
@@ -84,7 +128,6 @@ def run_episodes(tuner, model = None, eps = 0.999, r = False, iters = 100):
     for i in range(iters):
         state = env.reset()
 
-        totalreward = 0
         stateArray, actionArray, rewardArray, nextStateArray = (np.array([]) for i in range(4))
 
         if eps>eps_min:
@@ -104,7 +147,6 @@ def run_episodes(tuner, model = None, eps = 0.999, r = False, iters = 100):
             action = actionbinslist[actionbin]
             action = np.array([action])
             observation, reward, done, _ = env.step(action)
-            totalreward += reward
             state_new = observation
 
             stateArray = np.append(stateArray,state)
@@ -123,6 +165,14 @@ def run_episodes(tuner, model = None, eps = 0.999, r = False, iters = 100):
     return eps, model
 
 
+"""
+Main function generate the environment initiate training.
+Reduced the number of training iterations per run to 500,
+and increased interval to 100 - run_episodes is only called 5 times.
+
+Added initialization of tuner for hyperparam tunning of model.
+"""
+
 if __name__ == '__main__':
 
     env = gym.make('Pendulum-v0')
@@ -137,8 +187,6 @@ if __name__ == '__main__':
                      max_epochs = 20,
                      overwrite = True)
 
-    totarray = []
-    cntarray = []
     totaliters = 250
     test_interval = 25
     numeps = int(totaliters)
@@ -149,9 +197,6 @@ if __name__ == '__main__':
     while cnt < totaliters:
         eps, model = run_episodes(tuner, model, eps = eps, r = False, iters = test_interval)
         cnt += test_interval
-        trarray = []
-
-
 
     print('saving model')
     model.save('pendulum-model-test.h5')

@@ -1,4 +1,6 @@
-#code directly from
+'''
+Script to test models
+'''
 
 import gym
 import gym.spaces
